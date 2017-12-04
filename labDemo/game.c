@@ -19,14 +19,12 @@
 #define RED_LED BIT0
 
 
-//Create a rectangle of the given dimensions
 AbRect rect10 = {abRectGetBounds, abRectCheck, {3,3}};
 
 AbRect playerPaddle = {abRectGetBounds, abRectCheck, {2,12}};
 
 AbRect enemyPaddle = {abRectGetBounds, abRectCheck, {2,12}};
 
-//creates a right arrow of the given dimension
 AbRArrow rightArrow = {abRArrowGetBounds, abRArrowCheck, 20};
 
 //Self explanatory, the edges of the playing field
@@ -35,6 +33,10 @@ AbRectOutline fieldOutline = {
   {screenWidth/2 - 5, screenHeight/2 - 5}
 };
 
+//Layer welcome = {
+// u_char width = screenWidth, height = screenHeight;
+// drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+  
 //enemy layer
 Layer enemyPaddleLayer = {	    
   (AbShape *)&enemyPaddle,
@@ -140,7 +142,8 @@ void movLayerDraw(MovLayer *movLayers, Layer *layers)
  *  \param ml The moving shape to be advanced
  *  \param fence The region which will serve as a boundary for ml
  */
-void mlAdvance(MovLayer *ml, Region *fence, Region *paddle)
+//need score,eScore
+void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy)
 {
   Vec2 newPos;
   u_char axis;
@@ -149,12 +152,13 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle)
     vec2Add(&newPos, &ml->layer->posNext, &ml->velocity);
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
     for (axis = 0; axis < 2; axis ++) {
+      
       //conditional for fence
       //checks that balls topleft/bottom right is always inside fences.
       if ((shapeBoundary.topLeft.axes[axis] < fence->topLeft.axes[axis]) ||
 	  (shapeBoundary.botRight.axes[axis] > fence->botRight.axes[axis]) ) {
 	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
-	newPos.axes[axis] += (3*velocity);
+	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
       
       if ( (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
@@ -164,13 +168,23 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle)
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
       }	/**< if inside of paddle */
+
+      if ( (shapeBoundary.botRight.axes[0] < enemy->topLeft.axes[0])     &&
+	   (shapeBoundary.botRight.axes[1] < enemy->topLeft.axes[1])   &&
+	    (shapeBoundary.topLeft.axes[1] > enemy->topLeft.axes[1]))
+	{    
+      int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+      newPos.axes[axis] += (2*velocity);
+      }	/**< if inside of enemy */
       
     } /**< for axis */
 
     //POINT DETECTION
-    /* if ( shapeBoundary.topLeft.axes[0] < paddle->topLeft.axes[0]){
+    /* if ( shapeBoundary.topLeft.axes[0] < pointBoundary->topLeft.axes[0]){
+       //Original reaction to hit detection
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
+      //Do something here for displaying a new point and then reset ball pos
     }	/**< if ball passes paddle */
     ml->layer->posNext = newPos;
     
@@ -178,18 +192,22 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle)
 }
 
 
-u_int bgColor = COLOR_WHITE;     /**< The background color */
+u_int bgColor = COLOR_WHITE;    /**< The background color */
 int redrawScreen = 1;           /**< Boolean for whether screen needs to be redrawn */
 
 Region fieldFence;		/**< fence around playing field  */
-Region ePaddle;                  /** opponent on the right side */
-Region urPaddle;
+Region ePaddle;                 /**< Enemy Paddle*/
+Region urPaddle;                /**< Your paddle */
+Region score;                   /**< lefthand scoring region */
+Region enemyScore;              /**< Righthand scoring region */
 
 /** Initializes everything, enables interrupts and green LED, 
  *  and handles the rendering for the screen
  */
 void main()
 {
+  //MAKE WELCOME TO PONG IN A LAYER??????
+  
   P1DIR |= GREEN_LED;		/**< Green led on when CPU on */	      
   P1OUT |= GREEN_LED;
 
@@ -243,8 +261,7 @@ void wdt_c_handler()
   count ++;
   u_int switchDisplay = p2sw_read(), i;
   if (count == 15) {
-    mlAdvance(&ml0, &fieldFence, &urPaddle);
-      //mlAdvance(&ml0, &urPaddle);
+    mlAdvance(&ml0, &fieldFence, &urPaddle, &ePaddle);
       redrawScreen = 1;
     count = 0;
   }
