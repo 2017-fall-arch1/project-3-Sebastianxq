@@ -20,12 +20,11 @@
 
 
 AbRect rect10 = {abRectGetBounds, abRectCheck, {3,3}};
-
 AbRect playerPaddle = {abRectGetBounds, abRectCheck, {2,12}};
-
 AbRect enemyPaddle = {abRectGetBounds, abRectCheck, {2,12}};
-
 AbRArrow rightArrow = {abRArrowGetBounds, abRArrowCheck, 20};
+AbRect yourScoreArea = {abRectGetBounds, abRectCheck, {1,screenWidth-10}};
+AbRect enemyScoreArea = {abRectGetBounds, abRectCheck, {1,screenWidth-10}};
 
 //Self explanatory, the edges of the playing field
 AbRectOutline fieldOutline = { 
@@ -36,14 +35,27 @@ AbRectOutline fieldOutline = {
 //Layer welcome = {
 // u_char width = screenWidth, height = screenHeight;
 // drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
-  
+Layer enemyScoreZone = {
+  (AbShape *)&enemyScoreArea,
+  {screenWidth-5,screenHeight/2}, /**< center */
+  {0,0}, {0,0},				    /* last & next pos */
+  COLOR_BLUE,
+  0,
+};
+Layer yourScoreZone = {	    
+  (AbShape *)&yourScoreArea,
+  {screenWidth-122, screenHeight/2}, /**< center */
+  {0,0}, {0,0},				    /* last & next pos */
+  COLOR_BLUE,
+  &enemyScoreZone,
+};
 //enemy layer
 Layer enemyPaddleLayer = {	    
   (AbShape *)&enemyPaddle,
   {screenWidth-15, screenHeight/2}, /**< center */
   {0,0}, {0,0},				    /* last & next pos */
   COLOR_RED,
-  0,
+  &yourScoreZone,
 };
 
 //player controlled paddle layer
@@ -142,8 +154,10 @@ void movLayerDraw(MovLayer *movLayers, Layer *layers)
  *  \param ml The moving shape to be advanced
  *  \param fence The region which will serve as a boundary for ml
  */
+
 //need score,eScore
-void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy)
+void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
+	       Region *enemyGotScore, Region *youGotScore)
 {
   Vec2 newPos;
   u_char axis;
@@ -153,14 +167,14 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy)
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
     for (axis = 0; axis < 2; axis ++) {
       
-      //conditional for fence
-      //checks that balls topleft/bottom right is always inside fences.
+      //Fence Collision Detection
       if ((shapeBoundary.topLeft.axes[axis] < fence->topLeft.axes[axis]) ||
 	  (shapeBoundary.botRight.axes[axis] > fence->botRight.axes[axis]) ) {
 	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
 	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
-      
+
+      //Your Paddle collision Detection
       if ( (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
 	   (shapeBoundary.botRight.axes[1] < paddle->botRight.axes[1])   &&
 	   (shapeBoundary.topLeft.axes[1] > paddle->topLeft.axes[1]) )
@@ -169,6 +183,7 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy)
       newPos.axes[axis] += (2*velocity);
       }	/**< if inside of paddle */
 
+      //Enemy Paddle collision detection
       if ( (shapeBoundary.botRight.axes[0] < enemy->topLeft.axes[0])     &&
 	   (shapeBoundary.botRight.axes[1] < enemy->topLeft.axes[1])   &&
 	    (shapeBoundary.topLeft.axes[1] > enemy->topLeft.axes[1]))
@@ -176,16 +191,22 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy)
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
       }	/**< if inside of enemy */
+
+      //Your score zone collision detection
+      if (shapeBoundary.topLeft.axes[0] < youGotScore->botRight.axes[0]){ 
+	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+      //newPos.axes[axis] += (2*velocity);
+	drawString5x7(10,10, "they scored", COLOR_BLACK, COLOR_WHITE);
+      }	/**< if inside your scoring */
+
+      //Enemy score zone collision detection
+      if (shapeBoundary.botRight.axes[0] > enemyGotScore->topLeft.axes[0]){
+	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+      //newPos.axes[axis] += (2*velocity);
+	drawString5x7(10,10, "u scored", COLOR_BLACK, COLOR_WHITE);
+      }	/**< if inside of Enemy Scoring */
       
     } /**< for axis */
-
-    //POINT DETECTION
-    /* if ( shapeBoundary.topLeft.axes[0] < pointBoundary->topLeft.axes[0]){
-       //Original reaction to hit detection
-      int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
-      newPos.axes[axis] += (2*velocity);
-      //Do something here for displaying a new point and then reset ball pos
-    }	/**< if ball passes paddle */
     ml->layer->posNext = newPos;
     
   } /**< for ml */ 
@@ -207,6 +228,11 @@ Region enemyScore;              /**< Righthand scoring region */
 void main()
 {
   //MAKE WELCOME TO PONG IN A LAYER??????
+  //Have something that resets when the score zone is hit
+  //Have player controls
+  //Have sounds
+  //Have win screen
+  //For having a FSM, do states of the game!!
   
   P1DIR |= GREEN_LED;		/**< Green led on when CPU on */	      
   P1OUT |= GREEN_LED;
@@ -224,7 +250,9 @@ void main()
   layerGetBounds(&fieldLayer, &fieldFence);
   layerGetBounds(&enemyPaddleLayer, &ePaddle);
   layerGetBounds(&playerPaddleLayer, &urPaddle);
-
+  layerGetBounds(&enemyScoreZone, &score);
+  layerGetBounds(&yourScoreZone, &enemyScore);
+  
 
   enableWDTInterrupts();      /**< enable periodic interrupt */
   or_sr(0x8);	              /**< GIE (enable interrupts) */
@@ -241,7 +269,7 @@ void main()
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     
     u_char width = screenWidth, height = screenHeight;
-    drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+    //drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
     u_int switchDisplay = p2sw_read(), i;
     char str[5];
     for (i = 0; i< 4; i++)
@@ -261,7 +289,7 @@ void wdt_c_handler()
   count ++;
   u_int switchDisplay = p2sw_read(), i;
   if (count == 15) {
-    mlAdvance(&ml0, &fieldFence, &urPaddle, &ePaddle);
+    mlAdvance(&ml0, &fieldFence, &urPaddle, &ePaddle, &score, &enemyScore);
       redrawScreen = 1;
     count = 0;
   }
