@@ -167,7 +167,8 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
   Region shapeBoundary; /*the ever changing mov boundary */
   u_int switchDisplay = p2sw_read(), i;
   int switchPress = switchDisplay & (1<<i);
-  int yourScore,enemyScore = 0;
+  int yourScore = 0;
+  int enemyScore = 0;
   for (; ml; ml = ml->next) {
     vec2Add(&newPos, &ml->layer->posNext, &ml->velocity);
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
@@ -210,16 +211,16 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
       if (shapeBoundary.topLeft.axes[0] < youGotScore->botRight.axes[0]){ 
 	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       //newPos.axes[axis] += (2*velocity);
-	enemyScore++;
-	drawString5x7(0,10, ("%d",enemyScore, COLOR_BLACK, COLOR_WHITE);
+	//enemyScore++;
+	drawString5x7(60,0, ("Right: 0"), COLOR_RED, COLOR_WHITE);
       }	/**< if inside your scoring */
 
       //Enemy score zone collision detection
       if (shapeBoundary.botRight.axes[0] > enemyGotScore->topLeft.axes[0]){
 	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       //newPos.axes[axis] += (2*velocity);
-	yourScore++;
-	drawString5x7(25,25, ("%d",yourScore), COLOR_BLACK, COLOR_WHITE);
+	//yourScore++;
+	drawString5x7(10,0, "Left: 0", COLOR_BLUE, COLOR_WHITE);
       }	/**< if inside of Enemy Scoring */
       
     } /**< for axis */
