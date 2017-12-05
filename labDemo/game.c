@@ -29,7 +29,7 @@ AbRect enemyScoreArea = {abRectGetBounds, abRectCheck, {1,screenWidth-10}};
 //Self explanatory, the edges of the playing field
 AbRectOutline fieldOutline = { 
   abRectOutlineGetBounds, abRectOutlineCheck,   
-  {screenWidth/2 - 5, screenHeight/2 - 5}
+  {screenWidth/2 - 5, screenHeight/2 - 10}
 };
 
 //Layer welcome = {
@@ -108,8 +108,8 @@ typedef struct MovLayer_s {
 //IF THERE IS NO OTHER MOVING LAYER SET TAIL TO 0
 
 /* initial value of {0,0} will be overwritten, {col,row} velocity */
-//MovLayer ml3 = { &layer3, {1,1}, 0 }; /**< not all layers move */
-MovLayer ml1 = { &enemyPaddleLayer, {0,2},0 }; 
+MovLayer ml3 = { &playerPaddleLayer, {0,2}, 0 }; /**< not all layers move */
+MovLayer ml1 = { &enemyPaddleLayer, {0,2}, &ml3 };
 MovLayer ml0 = { &ballLayer, {1,1}, &ml1}; 
 
 void movLayerDraw(MovLayer *movLayers, Layer *layers)
@@ -119,6 +119,9 @@ void movLayerDraw(MovLayer *movLayers, Layer *layers)
 
   and_sr(~8);			/**< disable interrupts (GIE off) */
   for (movLayer = movLayers; movLayer; movLayer = movLayer->next) { /* for each moving layer */
+    //u_int switches = p2sw_read();
+    //if (switches){   
+      //}
     Layer *l = movLayer->layer;
     l->posLast = l->pos;
     l->pos = l->posNext;
@@ -162,10 +165,21 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
   Vec2 newPos;
   u_char axis;
   Region shapeBoundary; /*the ever changing mov boundary */
+  u_int switchDisplay = p2sw_read(), i;
+  int switchPress = switchDisplay & (1<<i);
+  int yourScore,enemyScore = 0;
   for (; ml; ml = ml->next) {
     vec2Add(&newPos, &ml->layer->posNext, &ml->velocity);
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
+
+    if (switchPress!=1 && !(ml->next) ){
+	int velocity = ml->velocity.axes[1] = -ml->velocity.axes[1];
+	//newPos.axes[axis] += (2*velocity);
+      } /** If switch is pressed */
     for (axis = 0; axis < 2; axis ++) {
+      //Why cant i have controls in here since collision works fine
+      //Button Press detection
+      // u_int switches = p2sw_read();
       
       //Fence Collision Detection
       if ((shapeBoundary.topLeft.axes[axis] < fence->topLeft.axes[axis]) ||
@@ -196,14 +210,16 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
       if (shapeBoundary.topLeft.axes[0] < youGotScore->botRight.axes[0]){ 
 	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       //newPos.axes[axis] += (2*velocity);
-	drawString5x7(10,10, "they scored", COLOR_BLACK, COLOR_WHITE);
+	enemyScore++;
+	drawString5x7(0,10, ("%d",enemyScore, COLOR_BLACK, COLOR_WHITE);
       }	/**< if inside your scoring */
 
       //Enemy score zone collision detection
       if (shapeBoundary.botRight.axes[0] > enemyGotScore->topLeft.axes[0]){
 	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       //newPos.axes[axis] += (2*velocity);
-	drawString5x7(10,10, "u scored", COLOR_BLACK, COLOR_WHITE);
+	yourScore++;
+	drawString5x7(25,25, ("%d",yourScore), COLOR_BLACK, COLOR_WHITE);
       }	/**< if inside of Enemy Scoring */
       
     } /**< for axis */
@@ -227,12 +243,14 @@ Region enemyScore;              /**< Righthand scoring region */
  */
 void main()
 {
-  //MAKE WELCOME TO PONG IN A LAYER??????
+  /*Change boundary so that top has a top left for your score,
+      top right for their score and then a middle that displays score*/
   //Have something that resets when the score zone is hit
   //Have player controls
   //Have sounds
   //Have win screen
   //For having a FSM, do states of the game!!
+  //msp430gcc to compile it into assembly!!!
   
   P1DIR |= GREEN_LED;		/**< Green led on when CPU on */	      
   P1OUT |= GREEN_LED;
