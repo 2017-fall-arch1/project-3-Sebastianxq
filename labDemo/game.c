@@ -14,6 +14,8 @@
 #include <p2switches.h>
 #include <shape.h>
 #include <abCircle.h>
+#include "libTimer.h"    /* for buzzer */
+#include "buzzer.h"      /* for buzzer */
 
 #define GREEN_LED BIT6
 #define RED_LED BIT0
@@ -88,7 +90,7 @@ Layer fieldLayer = {
 
 //Ball layer
 Layer ballLayer = {
-  (AbShape *)&circle10,
+  (AbShape *)&circle5,
   {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
   {0,0}, {0,0},				    /* last & next pos */
   COLOR_ORANGE,
@@ -111,6 +113,45 @@ typedef struct MovLayer_s {
 MovLayer ml3 = { &playerPaddleLayer, {0,2}, 0 }; /**< not all layers move */
 MovLayer ml1 = { &enemyPaddleLayer, {0,2}, &ml3 };
 MovLayer ml0 = { &ballLayer, {1,1}, &ml1}; 
+
+
+void buzzerInit()
+{
+    /* 
+       Direct timer A output "TA0.1" to P2.6.  
+        According to table 21 from data sheet:
+          P2SEL2.6, P2SEL2.7, anmd P2SEL.7 must be zero
+          P2SEL.6 must be 1
+        Also: P2.6 direction must be output
+    */
+    timerAUpmode();		/* used to drive speaker */
+    P2SEL2 &= ~(BIT6 | BIT7);
+    P2SEL &= ~BIT7; 
+    P2SEL |= BIT6;
+    P2DIR = BIT6;		/* enable output to speaker (P2.6) */
+
+    //buzzer_set_period(1000);	/* start buzzing!!! */
+}
+
+void buzzer_set_period(short cycles)
+{
+  CCR0 = cycles; 
+  CCR1 = cycles >> 1;		/* one half cycle */
+}
+static unsigned int period = 1000;
+static signed int rate = 200;	
+#define MIN_PERIOD 1000
+#define MAX_PERIOD 5000
+void buzzerAdvance() 
+{
+  period += rate;
+  if ((rate > 0 && (period > MAX_PERIOD)) || 
+      (rate < 0 && (period < MIN_PERIOD))) {
+    rate = -rate;
+    period += (rate << 1);
+  }
+  buzzer_set_period(period);
+}
 
 void movLayerDraw(MovLayer *movLayers, Layer *layers)
 {
@@ -175,8 +216,8 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
 
     if (switchPress!=1 && !(ml->next) ){
 	int velocity = ml->velocity.axes[1] = -ml->velocity.axes[1];
-	//newPos.axes[axis] += (2*velocity);
       } /** If switch is pressed */
+
     for (axis = 0; axis < 2; axis ++) {
       //Why cant i have controls in here since collision works fine
       //Button Press detection
@@ -187,43 +228,60 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
 	  (shapeBoundary.botRight.axes[axis] > fence->botRight.axes[axis]) ) {
 	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
 	newPos.axes[axis] += (2*velocity);
+	//buzzer_set_period(2000);
       }	/**< if outside of fence */
 
-      //Your Paddle collision Detection
-      if ( (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
+      //Your paddle collision detection 
+      /*if ( (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
 	   (shapeBoundary.botRight.axes[1] < paddle->botRight.axes[1])   &&
 	   (shapeBoundary.topLeft.axes[1] > paddle->topLeft.axes[1]) )
-      {    
+	   {  */
+      if(ml->next){
+       if ( //If top left of shape is LEFT of right paddle X
+	  (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
+	  //If ball is above paddle 
+	  (shapeBoundary.topLeft.axes[1] < paddle->botRight.axes[1]) &&   
+	  //if top left y is LOWER of top left paddle Y
+	  (shapeBoundary.topLeft.axes[1] > paddle->topLeft.axes[1]))
+	   {  
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
-      }	/**< if inside of paddle */
+      
+      buzzer_set_period(1000);
+       }	/**< if inside of paddle */
+	}
 
       //Enemy Paddle collision detection
-      if ( (shapeBoundary.botRight.axes[0] < enemy->topLeft.axes[0])     &&
-	   (shapeBoundary.botRight.axes[1] < enemy->topLeft.axes[1])   &&
+      /*if ( (shapeBoundary.botRight.axes[0] < enemy->topLeft.axes[0])     &&
+	   (shapeBoundary.botRight.axes[1] < enemy->botRight.axes[1])   &&
 	    (shapeBoundary.topLeft.axes[1] > enemy->topLeft.axes[1]))
 	{    
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
-      }	/**< if inside of enemy */
+      //buzzer_set_period(1000);
+      buzzerAdvance(); */
+	// }	/**< if inside of enemy */
 
       //Your score zone collision detection
       if (shapeBoundary.topLeft.axes[0] < youGotScore->botRight.axes[0]){ 
-	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
-      //newPos.axes[axis] += (2*velocity);
-	//enemyScore++;
+	//Resets the coordinates to the center
+	//newPos.axes[0] = screenHeight/2; //x
+	//newPos.axes[1] = screenWidth/2; //y
 	drawString5x7(60,0, ("Right: 0"), COLOR_RED, COLOR_WHITE);
+	//buzzer_set_period(2000);
+	buzzerAdvance();
       }	/**< if inside your scoring */
 
       //Enemy score zone collision detection
       if (shapeBoundary.botRight.axes[0] > enemyGotScore->topLeft.axes[0]){
-	//int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
-      //newPos.axes[axis] += (2*velocity);
 	//yourScore++;
 	drawString5x7(10,0, "Left: 0", COLOR_BLUE, COLOR_WHITE);
+	//buzzer_set_period(2000);
+	buzzerAdvance();
       }	/**< if inside of Enemy Scoring */
       
     } /**< for axis */
+    buzzer_set_period(0);
     ml->layer->posNext = newPos;
     
   } /**< for ml */ 
@@ -239,15 +297,16 @@ Region urPaddle;                /**< Your paddle */
 Region score;                   /**< lefthand scoring region */
 Region enemyScore;              /**< Righthand scoring region */
 
+typedef enum {welcomeMenu,play,scored,gameOver} states;
+
 /** Initializes everything, enables interrupts and green LED, 
  *  and handles the rendering for the screen
  */
 void main()
 {
-  /*Change boundary so that top has a top left for your score,
-      top right for their score and then a middle that displays score*/
+  ///Have score update on subsequent hits
   //Have something that resets when the score zone is hit
-  //Have player controls
+  //Make player controls less clunky
   //Have sounds
   //Have win screen
   //For having a FSM, do states of the game!!
@@ -261,14 +320,16 @@ void main()
   shapeInit();
   p2sw_init(15);
   shapeInit();
+  buzzerInit();
 
+  //inilitalize layers
   layerInit(&ballLayer);
   layerDraw(&ballLayer);
 
-
+  //Initialize moving layers
   layerGetBounds(&fieldLayer, &fieldFence);
   layerGetBounds(&enemyPaddleLayer, &ePaddle);
-  layerGetBounds(&playerPaddleLayer, &urPaddle);
+  //layerGetBounds(&playerPaddleLayer, &urPaddle);
   layerGetBounds(&enemyScoreZone, &score);
   layerGetBounds(&yourScoreZone, &enemyScore);
   
@@ -279,24 +340,51 @@ void main()
   //Something about char creation here lol
   //u_char width = screenWidth, height = screenHeight;
   // drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+  /* local variable definition */
 
+  states state = welcomeMenu;
+  switch(state){
+    //welcomeMenu,play,score,gameOver
+    case welcomeMenu:
+    drawString5x7(screenHeight/2,screenWidth/8, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+    state = play;
+    break;
+  case play:
+    drawString5x7((screenHeight/2)-5,5, "2", COLOR_BLACK, COLOR_WHITE);
+    state = scored;
+    break;
+  case scored:
+     drawString5x7((screenHeight/2)-10,10, "3", COLOR_BLACK, COLOR_WHITE);
+     state = gameOver;
+    break;
+  case gameOver:
+     drawString5x7((screenHeight/2)-15,15, "4", COLOR_BLACK, COLOR_WHITE);
+    break;
+  default:
+     drawString5x7((screenHeight/2),(screenWidth/2), "hmmm", COLOR_BLACK, COLOR_WHITE);
+     break;
+  
+  }
   for(;;) { 
     while (!redrawScreen) { /**< Pause CPU if screen doesn't need updating */
       P1OUT &= ~GREEN_LED;    /**< Green led off witHo CPU */
       or_sr(0x10);	      /**< CPU OFF */
     }
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
-    
-    u_char width = screenWidth, height = screenHeight;
-    //drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+
+    //String manipulation, probably dont need anymore tbh
+    /*u_char width = screenWidth, height = screenHeight;
+    drawString5x7(10,10, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
     u_int switchDisplay = p2sw_read(), i;
     char str[5];
     for (i = 0; i< 4; i++)
       str[i] = (switchDisplay & (1<<i)) ? '-' : '0'+i;
     str[4] = 0;
-    drawString5x7(20,20, str, COLOR_BLACK, COLOR_WHITE);
+    drawString5x7(20,20, str, COLOR_BLACK, COLOR_WHITE); */
+    
     redrawScreen = 0;
     movLayerDraw(&ml0, &ballLayer);
+    layerGetBounds(&playerPaddleLayer, &urPaddle);
   }
 }
 
