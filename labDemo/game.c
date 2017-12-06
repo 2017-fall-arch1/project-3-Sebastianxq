@@ -19,7 +19,7 @@
 
 #define GREEN_LED BIT6
 #define RED_LED BIT0
-
+static int points = 0;
 
 AbRect rect10 = {abRectGetBounds, abRectCheck, {3,3}};
 AbRect playerPaddle = {abRectGetBounds, abRectCheck, {2,12}};
@@ -232,10 +232,6 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
       }	/**< if outside of fence */
 
       //Your paddle collision detection 
-      /*if ( (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
-	   (shapeBoundary.botRight.axes[1] < paddle->botRight.axes[1])   &&
-	   (shapeBoundary.topLeft.axes[1] > paddle->topLeft.axes[1]) )
-	   {  */
       if(ml->next){
        if ( //If top left of shape is LEFT of right paddle X
 	  (shapeBoundary.topLeft.axes[0] < paddle->botRight.axes[0])     &&
@@ -246,22 +242,26 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
 	   {  
       int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
       newPos.axes[axis] += (2*velocity);
-      
-      buzzer_set_period(1000);
+      buzzer_set_period(750);
        }	/**< if inside of paddle */
-	}
-
+      } /**<if the mov layer is NOT your paddle */
+      
       //Enemy Paddle collision detection
-      /*if ( (shapeBoundary.botRight.axes[0] < enemy->topLeft.axes[0])     &&
-	   (shapeBoundary.botRight.axes[1] < enemy->botRight.axes[1])   &&
-	    (shapeBoundary.topLeft.axes[1] > enemy->topLeft.axes[1]))
-	{    
-      int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
-      newPos.axes[axis] += (2*velocity);
-      //buzzer_set_period(1000);
-      buzzerAdvance(); */
-	// }	/**< if inside of enemy */
-
+      if(ml->next->next){
+	//Once it passes the x axis
+	if ((shapeBoundary.botRight.axes[0] > enemy->topLeft.axes[0]) &&  
+	  //once it passes above
+	  (shapeBoundary.botRight.axes[1] < enemy->botRight.axes[1]) && 
+	  //once it passes below??
+	  (shapeBoundary.botRight.axes[1] > enemy->topLeft.axes[1]))
+	   {  
+	 //int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+	 //newPos.axes[axis] += (2*velocity);
+	     newPos.axes[0] = screenWidth/2;
+      newPos.axes[1] = screenHeight/2;
+      //buzzerAdvance(); 
+	 } 	/**< if inside of enemy */
+      }
       //Your score zone collision detection
       if (shapeBoundary.topLeft.axes[0] < youGotScore->botRight.axes[0]){ 
 	//Resets the coordinates to the center
@@ -269,12 +269,13 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
 	//newPos.axes[1] = screenWidth/2; //y
 	drawString5x7(60,0, ("Right: 0"), COLOR_RED, COLOR_WHITE);
 	//buzzer_set_period(2000);
+	points++;
 	buzzerAdvance();
       }	/**< if inside your scoring */
 
       //Enemy score zone collision detection
       if (shapeBoundary.botRight.axes[0] > enemyGotScore->topLeft.axes[0]){
-	//yourScore++;
+	points++;
 	drawString5x7(10,0, "Left: 0", COLOR_BLUE, COLOR_WHITE);
 	//buzzer_set_period(2000);
 	buzzerAdvance();
@@ -297,7 +298,7 @@ Region urPaddle;                /**< Your paddle */
 Region score;                   /**< lefthand scoring region */
 Region enemyScore;              /**< Righthand scoring region */
 
-typedef enum {welcomeMenu,play,scored,gameOver} states;
+typedef enum {welcomeMenu,play,gameOver,scored,end} states;
 
 /** Initializes everything, enables interrupts and green LED, 
  *  and handles the rendering for the screen
@@ -343,34 +344,49 @@ void main()
   /* local variable definition */
 
   states state = welcomeMenu;
+  while(state != end){
   switch(state){
-    //welcomeMenu,play,score,gameOver
+    //welcomeMenu,play,score,gameOver, end
     case welcomeMenu:
-    drawString5x7(screenHeight/2,screenWidth/8, "Welcome to pong", COLOR_BLACK, COLOR_WHITE);
+      drawString5x7(10,10, ("welcome to pong"), COLOR_BLACK, COLOR_WHITE);
+    redrawScreen = 1;
     state = play;
     break;
   case play:
-    drawString5x7((screenHeight/2)-5,5, "2", COLOR_BLACK, COLOR_WHITE);
+    while(points<5){
+      // for(;;) { 
+    while (!redrawScreen) { /**< Pause CPU if screen doesn't need updating */
+      P1OUT &= ~GREEN_LED;    /**< Green led off witHo CPU */
+      or_sr(0x10);	      /**< CPU OFF */
+    }
+    P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
+    redrawScreen = 0;
+    movLayerDraw(&ml0, &ballLayer);
+    layerGetBounds(&playerPaddleLayer, &urPaddle);
+    //}
+    }
     state = scored;
     break;
   case scored:
-     drawString5x7((screenHeight/2)-10,10, "3", COLOR_BLACK, COLOR_WHITE);
-     state = gameOver;
+    drawString5x7(10,10, "DONE", COLOR_BLACK, COLOR_WHITE);
+    redrawScreen = 0;
     break;
   case gameOver:
-     drawString5x7((screenHeight/2)-15,15, "4", COLOR_BLACK, COLOR_WHITE);
+    //redrawScreen = 1;
+     drawString5x7(10,10, "test", COLOR_BLACK, COLOR_WHITE);
     break;
   default:
      drawString5x7((screenHeight/2),(screenWidth/2), "hmmm", COLOR_BLACK, COLOR_WHITE);
      break;
   
   }
-  for(;;) { 
+  }
+  /* for(;;) { 
     while (!redrawScreen) { /**< Pause CPU if screen doesn't need updating */
-      P1OUT &= ~GREEN_LED;    /**< Green led off witHo CPU */
-      or_sr(0x10);	      /**< CPU OFF */
-    }
-    P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
+  //P1OUT &= ~GREEN_LED;    /**< Green led off witHo CPU */
+      //or_sr(0x10);	      /**< CPU OFF */
+      //  }
+//P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
 
     //String manipulation, probably dont need anymore tbh
     /*u_char width = screenWidth, height = screenHeight;
@@ -382,10 +398,10 @@ void main()
     str[4] = 0;
     drawString5x7(20,20, str, COLOR_BLACK, COLOR_WHITE); */
     
-    redrawScreen = 0;
+/* redrawScreen = 0;
     movLayerDraw(&ml0, &ballLayer);
     layerGetBounds(&playerPaddleLayer, &urPaddle);
-  }
+    } */
 }
 
 /** Watchdog timer interrupt handler. 15 interrupts/sec */
