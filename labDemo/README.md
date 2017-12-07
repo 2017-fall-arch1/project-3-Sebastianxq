@@ -1,8 +1,14 @@
-## Description
-This creates a pong match on your msp430
+## Introduction
+
+This program creates a 2 player pong match on your msp430
 
 ##How To Play
-The objective of the game is to score on the opponents side of the board. Press button 1 to switch between moving down and moving up. You control the paddle on the left side. After 5 points are scored by either opponent the game will end!
+
+The objective of the game is to score 5 points against your opponent.
+-SW1 and SW2 control the up and down of Player 1 respectively
+-SW3 and SW4 control the up and down of Player 1 respectively
 
 ##How To Run
-Input "Make game" into the console and wait for the program to load. 
+Input "Make game" into the console and wait for the program to load.
+
+##Method Description
