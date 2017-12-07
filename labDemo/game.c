@@ -174,16 +174,29 @@ void mlAdvance(MovLayer *ml, Region *fence, Region *paddle, Region *enemy,
   Region shapeBoundary; /*the ever changing mov boundary */
   u_int switchDisplay = p2sw_read(), i; /*used for switch detection */
   int switchPress = switchDisplay & (1<<i);
-  
+  ml->velocity.axes[1] = 0;
   for (; ml; ml = ml->next) {
     vec2Add(&newPos, &ml->layer->posNext, &ml->velocity);
     abShapeGetBounds(ml->layer->abShape, &newPos, &shapeBoundary);
-
-     /* if switch is pressed on the player paddle layer */
+    drawString5x7(screenWidth/2,screenHeight*.75, ('0'+(char*)switchPress), COLOR_BLACK, COLOR_WHITE);
+    /*Works but only for one direction
     if((switchPress!=1) && !(ml->next) ){
      ml->velocity.axes[1] = -2;
-      
     } /** If switch is pressed */
+    /*else if(( (switchPress&(1<<1)) ==2) && !(ml->next) ){
+     ml->velocity.axes[1] = 2;
+    } /** If switch is pressed */
+
+    //Controls for your paddle
+    if(!(switchDisplay & (1<<0)) && !(ml->next) ){
+     ml->velocity.axes[1] = -2;
+    } 
+    else if(!(switchDisplay & (1<<1)) && !(ml->next) ){
+     ml->velocity.axes[1] = 2;
+    } 
+    else{
+      ml->velocity.axes[1] = 0;
+    }
     
     for (axis = 0; axis < 2; axis ++) {
       //Fence Collision Detection
