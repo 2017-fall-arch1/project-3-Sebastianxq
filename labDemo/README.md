@@ -11,4 +11,10 @@ The objective of the game is to score 5 points against your opponent.
 ## How To Run
 Input "Make game" into the console and wait for the program to load.
 
-## Method Description
+## Method Descriptions
+- buzzerInit: initializes buzzer bits
+- buzzer_Set_period: sets a specific frequency that the buzzer will ring at
+- buzzerAdvance: sets a frequency interval that the buzzer will ring at
+- movLayerDraw: instantiates the moving objects and checks to see if they need to be redrawn
+- mlAdvance: checks collision for all the moving objects
+- main: instantiates needed librarys and progresses through the game states
