@@ -10,10 +10,11 @@ AS              = msp430-elf-gcc -mmcu=${CPU} -c
 all:lab.elf
 
 #additional rules for files
-lab.elf: ${COMMON_OBJECTS} game.o wdt_handler.o
+lab.elf: ${COMMON_OBJECTS} game.o wdt_handler.o ../lib/libTimer.a
 	${CC} ${CFLAGS} ${LDFLAGS} -o $@ $^ -lTimer -lLcd -lShape -lCircle -lp2sw
 
-game: lab.elf
+#eventually change to game but for efficieny leave at g
+g: lab.elf
 	mspdebug rf2500 "prog $^"
 
 clean:
